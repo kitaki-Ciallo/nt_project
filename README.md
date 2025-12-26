@@ -13,15 +13,15 @@
 ## ✨ 核心功能 (Features)
 
 * **🔭 全景透视**：一键查看国家队持仓总市值、胜率及仓位分布。
-* 👍 **机构指定**：支持自定义抓取指定机构持仓。
-* **🧩 智能分组**：支持通过通配符（如 `*汇金*`、`全国社保*`）自定义机构分组，灵活追踪各路主力。
-* **📊 分批核算**：通过披露时间段来估算建仓成本（VWAP 区间成本法），区分“底仓”与“新增资金”，精准计算每一笔增持的盈亏。
+* **👍 机构指定**：支持自定义抓取指定机构持仓。
+* **🧩  智能分组**：支持通过通配符（如 `*汇金*`、`全国社保*`）自定义机构分组，灵活追踪各路主力。
+* **📊 成本核算**：通过披露时间段来估算建仓成本（VWAP 区间成本法），区分“底仓”与“新增资金”，精准计算每一笔增持的盈亏。
 * **📈 深度集成**：内置 K 线图与技术指标（RSI, MA, Bias），并支持一键跳转东方财富 F10。
 * **🚀 极速部署**：支持 Docker 数据库部署与 Streamlit 热重载开发。
 
 ## 📸 界面预览 (Screenshots)
 
-![image-20251227025941511](C:\Users\北秋ovo\AppData\Roaming\Typora\typora-user-images\image-20251227025941511.png)
+![Dashboard Overview](assets/demo.png)
 
 ---
 
@@ -37,7 +37,7 @@
 
 ### 2. 克隆项目
 
-```bash
+```
 git clone [https://github.com/你的用户名/nt_project.git](https://github.com/你的用户名/nt_project.git)
 cd nt_project
 ```
@@ -115,4 +115,4 @@ Unless required by applicable law or agreed to in writing, software distributed 
 
 ------
 
-Made with ❤️ by [kitakiのgemini]
+Made with ❤️ by [kitakiのgemini✨]
