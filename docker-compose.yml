@@ -1,0 +1,20 @@
+version: '3.8'
+services:
+  db:
+    image: postgres:15
+    container_name: nt_postgres
+    restart: always
+    environment:
+      POSTGRES_USER: quant_user
+      POSTGRES_PASSWORD: quant_password_123  # 自己改个复杂的
+      POSTGRES_DB: national_team_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./storage/db_data:/var/lib/postgresql/data
+    networks:
+      - quant_net
+
+networks:
+  quant_net:
+    driver: bridge
