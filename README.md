@@ -1,18 +1,18 @@
-# 🇨🇳 国家队逆向工程指挥部 (National Team Reverse Engineering Dashboard)
+#  国家队持仓跟踪程系统 (National Team Position Tracking System)
 
 ![Python](https://img.shields.io/badge/Python-3.10-blue)
 ![Streamlit](https://img.shields.io/badge/Streamlit-1.28+-ff4b4b)
 ![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)
 
-**一个基于 Python + Streamlit 的 A 股主力资金监控与持仓分析系统。**
+**一个基于 Python + Streamlit 的A股国家队资金监控与持仓分析系统。**
 
-本项目旨在通过公开的财报数据，逆向追踪并可视化“国家队”（中央汇金、证金公司、社保基金、养老金等）的持仓动向、成本分布及盈亏状态，为投资者提供上帝视角的战术参考。
+本项目旨在通过公开的财报数据，逆向追踪并可视化“国家队”（中央汇金、证金公司、社保基金、养老金等）的持仓动向、建仓成本及盈亏状态，为投资者提供参考。
 
 ---
 
 ## ✨ 核心功能 (Features)
 
-* **🔭 全景透视**：一键查看国家队持仓总市值、胜率及仓位分布。
+* **🔭 全景透视**：一目了然查看国家队的持仓总市值、胜率及仓位分布。
 * **👍 机构指定**：支持自定义抓取指定机构持仓。
 * **🧩  智能分组**：支持通过通配符（如 `*汇金*`、`全国社保*`）自定义机构分组，灵活追踪各路主力。
 * **📊 成本核算**：通过披露时间段来估算建仓成本（VWAP 区间成本法），区分“底仓”与“新增资金”，精准计算每一笔增持的盈亏。
@@ -76,7 +76,7 @@ docker-compose up -d
 streamlit run dashboard.py
 ```
 
-访问浏览器：`http://localhost:8501` 即可看到指挥部界面。
+访问浏览器：`http://localhost:8501` 即可看到系统界面。
 
 
 
@@ -84,9 +84,10 @@ streamlit run dashboard.py
 
 ```Plaintext
 nt_project/
+├── assets
 ├── dashboard.py          # Streamlit 主程序 (Web 界面)
-├── analysis_engine.py    # 数据分析核心逻辑
-├── etl_ingest.py         # 数据清洗与入库脚本 (ETL)
+├── analysis_engine.py    # 读取持仓 -> 计算区间 VWAP * 0.95 -> 估算成本 -> 计算盈亏率
+├── etl_ingest.py         # 数据清洗与入库脚本 (ETL)，抓取股东数据，AkShare 抓取日线，多线程入库
 ├── docker-compose.yml    # 数据库容器配置
 └── storage/              # [Ignored] 存放数据库文件与本地日志
 ```
