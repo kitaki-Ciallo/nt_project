@@ -21,7 +21,7 @@ import re
 
 # ================= 配置区域 =================
 DB_URL = "postgresql+psycopg2://quant_user:quant_password_123@localhost:5432/national_team_db"
-SSF_KEYWORDS = ["社保", "养老", "汇金", "证金", "中央汇金", "全国社保", "基本养老"]
+SSF_KEYWORDS = ["社保", "养老",  "证金", "中央汇金", "全国社保", "基本养老"]
 MAX_WORKERS = 8  # 计算密集型，适当降低并发
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(message)s')
