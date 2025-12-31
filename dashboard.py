@@ -1,10 +1,8 @@
 # -*- coding: utf-8 -*-
 """
-🇨🇳 国家队监控室 v1.3 (最终交付版)
+🇨🇳 国家队监控室 v1.7 (GitHub Star 版)
 更新内容：
-1. [文案] K线详情区的 "分析报告" 改为 "机构盈亏"。
-2. [排版] 保持 v1.2 的紧凑型 CSS 排版。
-3. [完整] 包含所有核心指标 (成本、现价、估值、时间戳等)。
+1. [Sidebar] 增加 GitHub 跳转链接。
 """
 
 import streamlit as st
@@ -15,7 +13,7 @@ import plotly.graph_objects as go
 import plotly.express as px
 import fnmatch
 
-st.set_page_config(page_title="国家队监控室 v1.3", layout="wide", page_icon="🇨🇳")
+st.set_page_config(page_title="国家队监控室 v1.7", layout="wide", page_icon="🇨🇳")
 
 DB_URL = "postgresql+psycopg2://quant_user:quant_password_123@localhost:5432/national_team_db"
 TAG_GROUPS = {
@@ -38,7 +36,8 @@ def load_data_latest():
         a.profit_rate, a.status, a.period_end, a.hold_amount,
         a.cost_source, a.first_buy_date, a.change_analysis, a.update_time,
         f.pe_ttm, f.pe_dyn, f.pe_static, f.pb, f.div_rate, f.total_mv, f.div_rate_static,
-        f.eps, f.roe, f.net_profit_growth
+        f.eps, f.roe, f.revenue_growth, f.net_profit_growth,
+        f.revenue, f.gross_margin, f.net_margin
     FROM nt_positions_analysis a
     LEFT JOIN stock_basic b ON a.ts_code = b.ts_code
     LEFT JOIN nt_stock_fundamentals f ON a.ts_code = f.ts_code
@@ -65,7 +64,11 @@ def load_data_latest():
             return s
         df['status'] = df['status'].apply(clean_status)
 
-        numeric_cols = ['div_rate', 'div_rate_static', 'pe_ttm', 'pe_dyn', 'pe_static', 'pb', 'total_mv', 'est_cost', 'curr_price', 'eps', 'roe', 'net_profit_growth']
+        numeric_cols = [
+            'div_rate', 'div_rate_static', 'pe_ttm', 'pe_dyn', 'pe_static', 'pb', 
+            'total_mv', 'est_cost', 'curr_price', 'eps', 'roe', 
+            'revenue_growth', 'net_profit_growth', 'revenue', 'gross_margin', 'net_margin'
+        ]
         for col in numeric_cols:
             if col in df.columns:
                 df[col] = pd.to_numeric(df[col], errors='coerce')
@@ -74,7 +77,6 @@ def load_data_latest():
         if 'div_rate_static' in df.columns:
             df['div_rate_static'] = df['div_rate_static'].fillna(0)
             
-        # 计算市值 (单位: 元)
         df['position_val'] = df['hold_amount'] * 10000 * df['curr_price']
         df['profit_val'] = (df['curr_price'] - df['est_cost']) * df['hold_amount'] * 10000
         
@@ -141,7 +143,25 @@ status_list = df_all['status'].unique().tolist() if not df_all.empty else []
 selected_status = st.sidebar.multiselect("📊 盈亏状态", status_list, default=status_list)
 search_keyword = st.sidebar.text_input("🔍 搜索代码/名称", "")
 
-# 钻取模式逻辑
+# 🟢 Github Link (带 Logo 版)
+st.sidebar.markdown("---")
+st.sidebar.markdown(
+    """
+    <div style="text-align: center;">
+        <p style="font-size: 0.9em; margin-bottom: 10px;"> 你的 Star 是项目持续更新的动力，感谢支持⭐</p>
+        <a href="https://github.com/kitaki-Ciallo/nt_project" target="_blank" style="text-decoration: none;">
+            <button style="background-color: #24292e; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; width: 100%; display: flex; align-items: center; justify-content: center; transition: background-color 0.3s;">
+                <svg height="20" width="20" viewBox="0 0 16 16" version="1.1" style="fill: white; margin-right: 8px;">
+                    <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"></path>
+                </svg>
+                <span style="font-weight: bold; font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, Arial, sans-serif;">GitHub Repo</span>
+            </button>
+        </a>
+    </div>
+    """, 
+    unsafe_allow_html=True
+)
+
 if 'drill_target' in st.session_state and st.session_state.drill_target:
     current_holders = [st.session_state.drill_target]
     is_drill_mode = True
@@ -149,7 +169,6 @@ else:
     current_holders = sidebar_selection
     is_drill_mode = False
 
-# --- 过滤数据 ---
 filtered_df = df_all.copy()
 if not df_all.empty:
     if current_holders: filtered_df = filtered_df[filtered_df['holder_name'].isin(current_holders)]
@@ -157,7 +176,7 @@ if not df_all.empty:
     if search_keyword: filtered_df = filtered_df[filtered_df['ts_code'].str.contains(search_keyword) | filtered_df['name'].str.contains(search_keyword)]
 
 # ================= 主界面 =================
-st.title("🇨🇳 国家队持仓透视系统 v1.3")
+st.title("🇨🇳 国家队持仓透视系统 v1.7")
 st.caption(f"🚀 数据更新于：{update_time_str}")
 
 if "page_index" not in st.session_state: st.session_state.page_index = 0
@@ -239,29 +258,21 @@ if selected_tab == "🔍 核心看板":
                 st.markdown("<hr style='margin: 0.5em 0; border-top: 1px solid #f0f0f0;'>", unsafe_allow_html=True)
 
     st.divider()
-    st.subheader("📋 持仓明细 (点击左方格子查看详情)")
+    st.subheader("📋 持仓明细")
     
     if not filtered_df.empty:
         display_df = filtered_df.copy()
-        
         display_df['rel_weight'] = (display_df['position_val'] / CUR_TOTAL_VAL) * 100
         display_df['display_val'] = display_df['position_val'] / 100000000 
         display_df['display_amount'] = display_df['hold_amount'] * 100 
-
         display_df['period_end_str'] = display_df['period_end'].dt.strftime('%Y-%m-%d')
         display_df['first_buy_str'] = display_df['first_buy_date'].dt.strftime('%Y-%m-%d')
 
         view_cols = [
             'ts_code', 'name', 'holder_name', 'status',
-            'est_cost', 'curr_price', 
-            'profit_rate_pct',
-            'display_amount',  
-            'display_val',     
-            'change_analysis', 
-            'rel_weight',      
-            'first_buy_str',
-            'period_end_str',
-            'cost_source'
+            'est_cost', 'curr_price', 'profit_rate_pct',
+            'display_amount', 'display_val', 'change_analysis', 
+            'rel_weight', 'first_buy_str', 'period_end_str', 'cost_source'
         ]
         
         event = st.dataframe(display_df[view_cols], column_config={
@@ -274,9 +285,7 @@ if selected_tab == "🔍 核心看板":
             "display_val": st.column_config.NumberColumn("市值(亿)", format="%.2f"),
             "change_analysis": st.column_config.TextColumn("🔍 较上个财报期变动", width="large"),
             "rel_weight": st.column_config.ProgressColumn("持仓权重", min_value=0, max_value=20.0, format="%.2f%%"),
-            "first_buy_str": "建仓季度",
-            "period_end_str": "最新财报期",
-            "cost_source": "成本来源"
+            "first_buy_str": "建仓季度", "period_end_str": "最新财报期", "cost_source": "成本来源"
         }, use_container_width=True, height=600, hide_index=True, on_select="rerun", selection_mode="single-row", key="holdings_table")
 
         if event.selection.rows:
@@ -305,30 +314,8 @@ if selected_tab == "🔍 核心看板":
                     else: st.warning("⚠️ 暂无K线数据")
 
             with col_data:
-                # CSS 魔改：强制压缩间距 + 缩小字号
-                st.markdown("""
-                <style>
-                div[data-testid="stMetricValue"] > div {
-                    font-size: 1.0rem !important; 
-                    font-weight: 600 !important;
-                }
-                div[data-testid="stMetricLabel"] label {
-                    font-size: 0.8rem !important;
-                }
-                div[data-testid="stMetric"] {
-                    margin-bottom: 2px !important;
-                }
-                hr {
-                    margin-top: 5px !important;
-                    margin-bottom: 10px !important;
-                }
-                div[data-testid="column"] {
-                    gap: 0rem;
-                }
-                </style>
-                """, unsafe_allow_html=True)
+                st.markdown("""<style>div[data-testid="stMetricValue"]>div{font-size:1rem!important;font-weight:600!important;}div[data-testid="stMetricLabel"] label{font-size:0.8rem!important;}div[data-testid="stMetric"]{margin-bottom:2px!important;}hr{margin-top:5px!important;margin-bottom:10px!important;}div[data-testid="column"]{gap:0rem;}</style>""", unsafe_allow_html=True)
                 
-                # 🟢 修改处：标题改为 "机构盈亏"
                 st.info(f"**💰 机构盈亏: {row['profit_rate_pct']:+.2f}%**")
                 st.write("#### 📊 核心指标")
                 
@@ -342,29 +329,38 @@ if selected_tab == "🔍 核心看板":
 
                 st.markdown("<hr>", unsafe_allow_html=True)
                 
-                c5, c6 = st.columns(2)
-                main_pe = row['pe_dyn'] if pd.notna(row['pe_dyn']) else row['pe_ttm']
-                pe_help = f"动态: {safe_fmt(row['pe_dyn'])}\nTTM: {safe_fmt(row['pe_ttm'])}\n静态: {safe_fmt(row['pe_static'])}"
-                c5.metric("PE (市盈率)", safe_fmt(main_pe), help=pe_help)
-                c6.metric("PB (市净率)", safe_fmt(row['pb']))
-
-                c7, c8 = st.columns(2)
-                c7.metric("利润增长", safe_fmt(row['net_profit_growth'], "%"))
-                c8.metric("EPS", safe_fmt(row['eps']))
-                
-                c9, c10 = st.columns(2)
-                c9.metric("ROE", safe_fmt(row['roe'], "%"))
+                st.markdown("**1. 估值与规模**")
+                m1, m2 = st.columns(2)
                 mv_show = f"{row['total_mv']/100000000:.2f} 亿" if pd.notna(row['total_mv']) else "N/A"
-                c10.metric("总市值", mv_show) 
+                m1.metric("总市值", mv_show)
+                
+                pe_val = row['pe_dyn'] if pd.notna(row['pe_dyn']) else row['pe_ttm']
+                pe_help = f"动态: {safe_fmt(row['pe_dyn'])}\nTTM: {safe_fmt(row['pe_ttm'])}\n静态: {safe_fmt(row['pe_static'])}"
+                m2.metric("PE (市盈率)", safe_fmt(pe_val), help=pe_help)
 
-                c11, c12 = st.columns(2)
+                m3, m4 = st.columns(2)
+                m3.metric("PB (市净率)", safe_fmt(row['pb']))
+                
                 div_val = row['div_rate']
                 div_show = f"{div_val:.2f}%" if div_val > 0 else "-"
-                c11.metric("💰 股息(TTM)", div_show)
-                    
-                div_static_val = row.get('div_rate_static')
-                div_static_show = f"{div_static_val:.2f}%" if (pd.notna(div_static_val) and div_static_val > 0) else "-"
-                c12.metric("📅 股息(静态)", div_static_show, help="基于上年度分红") 
+                m4.metric("股息(TTM)", div_show)
+
+                st.markdown("<hr>", unsafe_allow_html=True)
+
+                st.markdown("**2. 成长性 (同比)**")
+                g1, g2 = st.columns(2)
+                rev_help = f"总营收: {safe_fmt(row['revenue']/100000000)} 亿" if pd.notna(row['revenue']) else None
+                g1.metric("营收增长", safe_fmt(row['revenue_growth'], "%"), help=rev_help)
+                
+                prof_help = f"毛利率: {safe_fmt(row['gross_margin'], '%')}\n净利率: {safe_fmt(row['net_margin'], '%')}"
+                g2.metric("利润增长", safe_fmt(row['net_profit_growth'], "%"), help=prof_help)
+
+                st.markdown("<hr>", unsafe_allow_html=True)
+
+                st.markdown("**3. 盈利能力**")
+                p1, p2 = st.columns(2)
+                p1.metric("ROE", safe_fmt(row['roe'], "%"))
+                p2.metric("EPS", safe_fmt(row['eps']))
 
                 st.markdown("<hr>", unsafe_allow_html=True)
                 
@@ -374,21 +370,14 @@ if selected_tab == "🔍 核心看板":
                     t1, t2 = st.columns(2)
                     t1.metric("RSI (14)", f"{tech['RSI']:.1f}")
                     t2.metric("乖离率", f"{tech['Bias20']:.1f}%")
-                    st.caption(f"趋势: {tech['Trend']}")
-        #else:
-            #st.info("👈 请点击上方表格中的股票，查看【K线图】及【东财深度资料】")
-    else:
-        st.info("💡 暂无持仓分析数据。")
+    else: st.info("💡 暂无持仓分析数据。")
 
 elif selected_tab == "🏆 战绩排行榜":
     st.markdown("### 🏆 各大机构操盘能力排行榜")
     if not filtered_df.empty:
         col_ctrl, col_hint = st.columns([2, 5])
-        with col_ctrl: 
-            sort_metric = st.radio("📊 排序依据", ["持仓收益率", "平均收益率"], horizontal=True)
-        with col_hint:
-            st.markdown("<br>", unsafe_allow_html=True)
-            st.info("💡 **提示**：点击页面底部的 **“详细战绩数据”** 表格行，即可查看该机构的详细持仓！")
+        with col_ctrl: sort_metric = st.radio("📊 排序依据", ["持仓收益率", "平均收益率"], horizontal=True)
+        with col_hint: st.markdown("<br>", unsafe_allow_html=True); st.info("💡 **提示**：点击页面底部的 **“详细战绩数据”** 表格行，即可查看该机构的详细持仓！")
 
         rank_df = filtered_df.groupby('holder_name').apply(lambda x: pd.Series({
             'avg_profit': x['profit_rate_pct'].mean(), 

@@ -1,10 +1,9 @@
 # -*- coding: utf-8 -*-
 """
-数据采集引擎 (ETL Ingest Engine) - 静态股息计算版 v5.0
-核心功能：
-1. [快轨] API 直连获取行情、PE(TTM)、PB、ROE。
-2. [慢轨] 针对持仓股，逐个拉取历史分红，计算精准的“静态股息率”。
-3. [计算] 静态股息率 = (上一年度累计每股分红 / 当前股价) * 100%
+数据采集引擎 (ETL Ingest Engine) - 核心指标增强版 v6.2
+更新内容：
+1. [字段] 严格执行用户勘误的字段映射：
+   - f183(总营收), f184(营收增长), f185(利润增长), f186(毛利率), f187(净利率)
 """
 
 import akshare as ak
@@ -18,11 +17,13 @@ from tqdm import tqdm
 import requests
 import time
 import re
+import json
 
 # ================= 配置区域 =================
 DB_URL = "postgresql+psycopg2://quant_user:quant_password_123@localhost:5432/national_team_db"
-SSF_KEYWORDS = ["社保", "养老",  "证金", "中央汇金", "全国社保", "基本养老"]
-MAX_WORKERS = 8  # 计算密集型，适当降低并发
+SSF_KEYWORDS = ["社保", "养老", "证金", "中央汇金", "全国社保", "基本养老", "中国证券金融", "社保基金", "汇金资管"]
+
+MAX_WORKERS = 8
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(message)s')
 
@@ -30,7 +31,6 @@ class DataEngine:
     def __init__(self):
         self.engine = create_engine(DB_URL)
         self.today = datetime.datetime.now().strftime("%Y%m%d")
-        # 自动计算“去年”是哪一年 (例如现在是2025，去年就是2024)
         self.last_year = datetime.datetime.now().year - 1
 
     def get_secid(self, code):
@@ -56,13 +56,18 @@ class DataEngine:
             "p": "1", "ps": "50", "st": "END_DATE", "sr": "-1",
             "source": "SELECT_SECU_DATA", "client": "WEB",
         }
-        try:
-            res = requests.get(url, params=params, timeout=5)
-            data = res.json()
-            if data['result'] and data['result']['data']:
-                return pd.DataFrame(data['result']['data'])
-            return pd.DataFrame()
-        except: return pd.DataFrame()
+        for attempt in range(3):
+            try:
+                res = requests.get(url, params=params, timeout=10)
+                if res.status_code == 200:
+                    data = res.json()
+                    if data['result'] and data['result']['data']:
+                        return pd.DataFrame(data['result']['data'])
+                    return pd.DataFrame()
+            except Exception as e:
+                if attempt == 2: print(f"⚠️ [警告] {secucode} 获取失败: {e}")
+                time.sleep(1)
+        return pd.DataFrame()
 
     def fetch_and_save_shareholders(self, ts_code):
         try:
@@ -79,6 +84,7 @@ class DataEngine:
             target_df = df[mask].copy()
             if target_df.empty: return 0
 
+            target_df = target_df.reset_index(drop=True) 
             clean_df = pd.DataFrame()
             clean_df['ts_code'] = [ts_code] * len(target_df)
             clean_df['ann_date'] = pd.to_datetime(target_df['END_DATE']).dt.date
@@ -134,69 +140,54 @@ class DataEngine:
             for future in tqdm(as_completed(futures), total=len(stock_list), desc="MarketData ETL"):
                 future.result()
 
-    # ================= ✨ 模块3: 基本面 + 静态股息计算 =================
+    # ================= ✨ 模块3: 基本面 (增强版) =================
     
     def calculate_static_dividend(self, ts_code, curr_price):
-        """
-        ⚡️ 慢轨：查询历史分红，计算上一年度累计分红
-        """
         if not curr_price or curr_price <= 0: return None
-        
         try:
-            # 获取分红历史 (东方财富接口)
             df = ak.stock_fhps_detail_em(symbol=ts_code)
             if df.empty: return None
-            
-            # 筛选上一年度的财报 (例如 2024-12-31, 2024-06-30 等)
-            # 这里的‘截止日期’通常是财报期
             last_year_str = str(self.last_year)
             target_rows = df[df['截止日期'].astype(str).str.startswith(last_year_str)]
-            
-            if target_rows.empty: return 0.0 # 去年没分红
-            
-            total_dps = 0.0 # 每股累计股利
-            
+            if target_rows.empty: return 0.0 
+            total_dps = 0.0 
             for _, row in target_rows.iterrows():
-                # 解析 "10派X元" 或 "每10股派X元"
-                # 字段名通常是 "现金分红" (内容如: 10派3.064元)
                 scheme = str(row.get('现金分红', ''))
-                
-                # 正则提取数字
                 match = re.search(r'派([\d\.]+)元', scheme)
                 if match:
                     cash_per_10 = float(match.group(1))
-                    total_dps += (cash_per_10 / 10.0) # 转为每股
-            
-            # 静态股息率 = (去年分红总和 / 现价) * 100
+                    total_dps += (cash_per_10 / 10.0)
             static_rate = (total_dps / curr_price) * 100
             return round(static_rate, 2)
-            
-        except Exception:
-            return None
+        except Exception: return None
 
     def fetch_combined_data(self, ts_code):
-        # 1. 快轨: 获取 API 实时数据
         url = "http://push2.eastmoney.com/api/qt/stock/get"
+        # 🟢 修正字段映射: f183(总营收), f184(营收增长), f185(利润增长), f186(毛利), f187(净利)
         params = {
             "invt": "2", "fltt": "2",
-            "fields": "f43,f57,f58,f162,f164,f167,f170,f163,f116,f173,f184", 
+            "fields": "f43,f57,f58,f162,f164,f167,f170,f163,f116,f173,f183,f184,f185,f186,f187", 
             "secid": self.get_secid(ts_code),
             "ut": "fa5fd1943c7b386f172d68934880c8d6", "cb": "jQuery123", "_": str(int(time.time() * 1000))
         }
         
         data = {
             "ts_code": ts_code,
-            "pe_ttm": None, "pe_dyn": None, "pe_static": None,
-            "pb": None, "div_rate": None, "div_rate_static": None,
+            "pe_ttm": None, "pe_dyn": None, "pe_static": None, "pb": None,
+            "div_rate": None, "div_rate_static": None,
             "total_mv": None, "curr_price": None,
-            "eps": None, "roe": None, "net_profit_growth": None, "net_margin": None
+            "eps": None, "roe": None,
+            "revenue": None,         # 总营收 (f183)
+            "revenue_growth": None,  # 营收增长 (f184)
+            "net_profit_growth": None, # 利润增长 (f185)
+            "gross_margin": None,    # 毛利率 (f186)
+            "net_margin": None       # 净利率 (f187)
         }
 
         try:
             res = requests.get(url, params=params, timeout=3)
             text = res.text
             if "(" in text and ")" in text:
-                import json
                 json_str = text.split("(", 1)[1].rsplit(")", 1)[0]
                 resp_json = json.loads(json_str)
                 
@@ -212,11 +203,18 @@ class DataEngine:
                     data['pe_dyn'] = parse_val(d.get('f162'))
                     data['pe_ttm'] = parse_val(d.get('f164'))
                     data['pe_static'] = parse_val(d.get('f163'))
-                    data['pb'] = parse_val(d.get('f167'))
+                    data['pb'] = parse_val(d.get('f167')) # 🟢 PB 在这里
+                    
                     data['roe'] = parse_val(d.get('f173'))
-                    data['net_profit_growth'] = parse_val(d.get('f184'))
+                    
+                    # 🟢 严格映射用户确认的字段
+                    data['revenue'] = parse_val(d.get('f183'))
+                    data['revenue_growth'] = parse_val(d.get('f184')) 
+                    data['net_profit_growth'] = parse_val(d.get('f185')) 
+                    data['gross_margin'] = parse_val(d.get('f186')) 
+                    data['net_margin'] = parse_val(d.get('f187'))
 
-                    # TTM 股息率 (官方)
+                    # TTM 股息率
                     raw_div = parse_val(d.get('f170'))
                     if raw_div is not None and raw_div > 0:
                         data['div_rate'] = raw_div
@@ -225,7 +223,7 @@ class DataEngine:
                     if data['curr_price'] and data['pe_ttm'] and data['pe_ttm'] > 0:
                         data['eps'] = round(data['curr_price'] / data['pe_ttm'], 2)
 
-                    # 2. 慢轨: 计算静态股息率 (只有当拿到现价时才算)
+                    # 静态股息率
                     if data['curr_price']:
                         static_val = self.calculate_static_dividend(ts_code, data['curr_price'])
                         if static_val is not None:
@@ -235,7 +233,7 @@ class DataEngine:
         return data
 
     def run_fundamentals_sync(self):
-        print(f">>> 🚀 开始同步基本面数据 (基准年: {self.last_year})...")
+        print(f">>> 🚀 开始同步基本面数据 (增强版)...")
         try:
             target_stocks = pd.read_sql("SELECT DISTINCT ts_code FROM nt_shareholders", self.engine)
             stock_list = target_stocks['ts_code'].tolist()
@@ -243,7 +241,6 @@ class DataEngine:
         except: return
 
         final_data_list = []
-        # 注意：这里因为加了 calculate_static_dividend，速度会变慢，所以用多线程
         with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
             future_to_code = {executor.submit(self.fetch_combined_data, code): code for code in stock_list}
             for future in tqdm(as_completed(future_to_code), total=len(stock_list), desc="Fetching Data"):
@@ -257,12 +254,18 @@ class DataEngine:
             print(">>> 正在更新数据库 (Schema Update)...")
             
             # 补全列
-            expected_cols = ['ts_code', 'total_mv', 'pe_dyn', 'pe_ttm', 'pe_static', 'pb', 'curr_price', 'eps', 'roe', 'div_rate', 'div_rate_static', 'net_profit_growth', 'net_margin']
+            expected_cols = [
+                'ts_code', 'total_mv', 'pe_dyn', 'pe_ttm', 'pe_static', 'pb', 
+                'curr_price', 'eps', 'roe', 
+                'div_rate', 'div_rate_static', 
+                'revenue', 'revenue_growth', 'net_profit_growth', 
+                'gross_margin', 'net_margin'
+            ]
             for col in expected_cols:
                 if col not in df_final.columns:
                     df_final[col] = None
             
-            # 使用 replace 确保 div_rate_static 字段被创建
+            # 🟢 replace 模式确保新字段被写入数据库
             df_final[expected_cols].to_sql('nt_stock_fundamentals', self.engine, if_exists='replace', index=False)
             print(f"🎉 基本面数据更新完成！共 {len(df_final)} 条。")
         else:
@@ -270,7 +273,6 @@ class DataEngine:
 
 if __name__ == "__main__":
     engine = DataEngine()
-    # 第一次运行建议全部解开
     engine.run_shareholder_sync()
     engine.run_market_data_sync() 
     engine.run_fundamentals_sync()

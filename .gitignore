@@ -10,4 +10,3 @@ storage/
 __pycache__/
 *.py[cod]
 .DS_Store
-debug*.py
