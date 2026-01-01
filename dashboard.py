@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-🇨🇳 国家队监控室 v1.7 (GitHub Star 版)
+🇨🇳 国家队持仓透视系统 v1.0 (GitHub Star 版)
 更新内容：
 1. [Sidebar] 增加 GitHub 跳转链接。
 """
@@ -13,7 +13,7 @@ import plotly.graph_objects as go
 import plotly.express as px
 import fnmatch
 
-st.set_page_config(page_title="国家队监控室 v1.7", layout="wide", page_icon="🇨🇳")
+st.set_page_config(page_title="国家队持仓透视系统 v1.0", layout="wide", page_icon="🇨🇳")
 
 DB_URL = "postgresql+psycopg2://quant_user:quant_password_123@localhost:5432/national_team_db"
 TAG_GROUPS = {
