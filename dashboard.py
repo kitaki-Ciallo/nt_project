@@ -176,7 +176,7 @@ if not df_all.empty:
     if search_keyword: filtered_df = filtered_df[filtered_df['ts_code'].str.contains(search_keyword) | filtered_df['name'].str.contains(search_keyword)]
 
 # ================= 主界面 =================
-st.title("🇨🇳 国家队持仓透视系统 v1.7")
+st.title("🇨🇳 国家队持仓透视系统 v1.0")
 st.caption(f"🚀 数据更新于：{update_time_str}")
 
 if "page_index" not in st.session_state: st.session_state.page_index = 0
