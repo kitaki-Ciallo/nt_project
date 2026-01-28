@@ -23,6 +23,10 @@ import json
 import re
 import traceback
 import psycopg2.extras
+import tushare as ts
+
+# 初始化 Tushare Pro 接口
+pro = ts.pro_api('your_tushare_token_here')
 
 # ================= 配置区域 =================
 DB_URL = "postgresql+psycopg2://quant_user:quant_password_123@localhost:5432/national_team_db"
@@ -170,29 +174,10 @@ class DataEngine:
             return len(clean_df)
         except: return 0
 
-    # --- 模块2: 日线数据 (慢速+报警) ---
+    # --- 模块2: 日线数据 (Tushare 高速版) ---
     def fetch_and_save_daily_data(self, ts_code):
         try:
-            # --- 🛑 速率限制逻辑 (日线) ---
-            sleep_needed = 0
-            with self.lock:
-                if time.time() < self.daily_resume_time:
-                    sleep_needed = self.daily_resume_time - time.time()
-                else:
-                    self.daily_count += 1
-                    if self.daily_count % 50 == 0:
-                        pause_duration = random.randint(5, 15)
-                        self.daily_resume_time = time.time() + pause_duration
-                        sleep_needed = pause_duration
-                        print(f"😴 [日线] 已抓取 {self.daily_count} 次，触发反爬保护，暂停 {pause_duration} 秒...")
-            
-            if sleep_needed > 0:
-                time.sleep(sleep_needed)
-            # ---------------------------
-
-            time.sleep(random.uniform(0.5, 1.2)) # 强制延迟
-            
-            # 🚀 [增量更新] 智能判断起始日期
+            #  [增量更新] 智能判断起始日期
             start_date = "20060101"
             try:
                 # 查询该股票在数据库中的最新日期
@@ -211,42 +196,47 @@ class DataEngine:
                 return
 
             end_date = self.today
-            url = "http://push2his.eastmoney.com/api/qt/stock/kline/get"
-            secid = self.get_secid(ts_code)
-            params = {
-                "secid": secid, "klt": "101", "fqt": "1", "lmt": "2000", 
-                "beg": start_date, "end": end_date, 
-                "fields1": "f1", "fields2": "f51,f52,f53,f54,f55,f56,f57"
-            }
-            # 不用 session，模拟新请求
-            res = requests.get(url, params=params, headers=self.session.headers, timeout=5)
             
-            if res.status_code != 200:
-                msg = f"HTTP {res.status_code} | Code: {ts_code}"
-                print(f"🚨 [日线接口] {msg}")
-                if self.check_alert("daily_block"):
-                    send_pushplus("日线接口被封", f"状态码异常。\n详情: {msg}")
+            # 使用 Tushare 获取数据
+            # 注意：Tushare 需要带后缀的代码 (e.g. 600000.SH)
+            tushare_code = self.get_secucode(ts_code)
+            
+            try:
+                df = pro.daily(**{
+                    "ts_code": tushare_code,
+                    "start_date": start_date,
+                    "end_date": end_date
+                }, fields=[
+                    "ts_code", "trade_date", "open", "high", "low", "close", "vol", "amount"
+                ])
+            except Exception as e:
+                print(f"⚠️ [Tushare报错] {ts_code}: {e}")
+                time.sleep(1) # 稍微休息一下避免触发 Tushare 频率限制（如果有的话）
                 return
 
-            data = res.json()
-            if not (data.get('data') and data['data'].get('klines')): return
+            if df is None or df.empty:
+                return
 
-            rows = []
-            for k in data['data']['klines']:
-                parts = k.split(',')
-                rows.append({
-                    "ts_code": ts_code,
-                    "trade_date": parts[0],
-                    "open": float(parts[1]),
-                    "close": float(parts[2]),
-                    "high": float(parts[3]),
-                    "low": float(parts[4]),
-                    "vol": float(parts[5]),
-                    "amount": float(parts[6])
-                })
+            # 数据清洗与转换
+            # 1. Tushare 返回的 ts_code 是带后缀的，我们需要改回纯数字以匹配数据库
+            df['ts_code'] = ts_code
+            
+            # 2. Tushare 的 amount 单位是千元，数据库通常存元 (根据之前 Eastmoney 的逻辑)
+            #    Eastmoney 的 amount 通常是元。
+            #    Tushare amount: 成交额 （千元）
+            #    所以需要 * 1000
+            df['amount'] = df['amount'] * 1000
+            
+            # 3. Tushare 的 vol 单位是手 (100股)
+            #    Eastmoney 的 vol 通常也是手 (f5)
+            #    batch_history_trace.py 中计算 VWAP 是 total_amt / (total_vol * 100)
+            #    说明 vol 应该是手。所以 Tushare 的 vol 不需要转换。
+            
+            # 准备写入
+            rows = df.to_dict(orient='records')
             
             if rows:
-                # 🚀 [优化] 使用 execute_values 进行批量插入，解决远程数据库写入慢的问题
+                # 🚀 [优化] 使用 execute_values 进行批量插入
                 cols = ["ts_code", "trade_date", "open", "close", "high", "low", "vol", "amount"]
                 values = [[row[c] for c in cols] for row in rows]
                 
@@ -263,18 +253,12 @@ class DataEngine:
                 """
                 
                 with self.engine.connect() as conn:
-                    # 获取原生 psycopg2 游标以使用高性能扩展
                     cursor = conn.connection.cursor()
                     psycopg2.extras.execute_values(cursor, insert_sql, values)
                     conn.connection.commit()
+                    
         except Exception as e:
-            # 🟢 [修复] 这里原本是 pass，现在改为打印并报警
-            err_msg = str(e)
-            print(f"❌ [连接中断] 日线同步出错 {ts_code}: {err_msg}")
-            if ("RemoteDisconnected" in err_msg or "Connection aborted" in err_msg) and self.check_alert("daily_conn_err"):
-                send_pushplus("日线连接中断", f"检测到底层连接被断开 (curl 52)。\n详情: {err_msg}")
-                print("🛑 检测到严重连接错误，正在终止程序...")
-                os._exit(1)
+            print(f"❌ [同步错误] {ts_code}: {e}")
 
     # --- 模块3: 基本面 (慢速+报警) ---
     def fetch_combined_data(self, ts_code):
