@@ -37,14 +37,17 @@ def update_tokens():
                 # Handles spaces around = and different quote types
                 pattern_py = r'(PUSHPLUS_TOKEN\s*=\s*)([\'"])(.*?)([\'"])'
                 if re.search(pattern_py, new_content):
-                    new_content = re.sub(pattern_py, f'\\1\\2{pushplus_token}\\4', new_content)
+                    # Use \g<n> to avoid ambiguity if token starts with a digit
+                    safe_token = pushplus_token.replace('\\', '\\\\')
+                    new_content = re.sub(pattern_py, f'\\g<1>\\g<2>{safe_token}\\g<4>', new_content)
                     modified = True
                 
                 # Shell pattern: PUSHPLUS_TOKEN="..."
                 # Usually no spaces in shell assignment
                 pattern_sh = r'(PUSHPLUS_TOKEN=)([\'"])(.*?)([\'"])'
                 if re.search(pattern_sh, new_content):
-                    new_content = re.sub(pattern_sh, f'\\1\\2{pushplus_token}\\4', new_content)
+                    safe_token = pushplus_token.replace('\\', '\\\\')
+                    new_content = re.sub(pattern_sh, f'\\g<1>\\g<2>{safe_token}\\g<4>', new_content)
                     modified = True
             
             # Update Tushare Token
@@ -52,7 +55,8 @@ def update_tokens():
                 # Pattern: pro = ts.pro_api('...')
                 pattern_ts = r'(pro\s*=\s*ts\.pro_api\s*\(\s*)([\'"])(.*?)([\'"])(\s*\))'
                 if re.search(pattern_ts, new_content):
-                    new_content = re.sub(pattern_ts, f'\\1\\2{tushare_token}\\4\\5', new_content)
+                    safe_token = tushare_token.replace('\\', '\\\\')
+                    new_content = re.sub(pattern_ts, f'\\g<1>\\g<2>{safe_token}\\g<4>\\g<5>', new_content)
                     modified = True
             
             if modified:
