@@ -29,7 +29,7 @@ handle_error() {
 }
 
 # 🛡️ 开启错误捕获
-trap 'handle_error $LINENO' ERR
+#trap 'handle_error $LINENO' ERR
 
 echo "============================================"
 echo "🚀 [$(date '+%Y-%m-%d %H:%M:%S')] 任务开始: 增量智能更新"
