@@ -2,8 +2,29 @@
 # 文件名: update_data.sh
 
 export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/root/bin:$PATH
-PROJECT_DIR="/root/nt_project"
-PYTHON_EXEC="/root/miniconda3/bin/python"
+# 自动获取脚本所在目录作为项目目录
+PROJECT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+
+# 自动追踪 Python 路径
+PYTHON_EXEC=$(which python 2>/dev/null)
+if [ -z "$PYTHON_EXEC" ]; then
+    PYTHON_EXEC=$(which python3 2>/dev/null)
+fi
+
+# 如果还是找不到，尝试使用一些常见的 Conda/系统路径
+if [ -z "$PYTHON_EXEC" ]; then
+    if [ -x "/root/miniconda3/bin/python" ]; then
+        PYTHON_EXEC="/root/miniconda3/bin/python"
+    elif [ -x "/usr/bin/python3" ]; then
+        PYTHON_EXEC="/usr/bin/python3"
+    else
+        echo "❌ [错误] 未找到 Python 解释器，请检查环境变量。"
+        exit 1
+    fi
+fi
+
+echo "📂 项目目录: $PROJECT_DIR"
+echo "🐍 Python路径: $PYTHON_EXEC"
 PUSHPLUS_TOKEN="your_pushplus_token_here"  # 请替换为您的 PushPlus Token
 
 # --- 函数定义 ---

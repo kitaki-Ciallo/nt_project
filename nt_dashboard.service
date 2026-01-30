@@ -1,0 +1,20 @@
+[Unit]
+Description=NT Project Dashboard (Streamlit)
+After=network.target
+
+[Service]
+User=root
+WorkingDirectory=/root/nt_project
+
+# 如果您的环境不同，请修改下面的路径
+ExecStart=/usr/local/bin/streamlit run dashboard.py --server.port 8501 --server.address 0.0.0.0
+Restart=always
+RestartSec=5
+
+# 解决 Streamlit 可能的编码问题
+Environment=PYTHONUNBUFFERED=1
+Environment=LC_ALL=C.UTF-8
+Environment=LANG=C.UTF-8
+
+[Install]
+WantedBy=multi-user.target
