@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-🇨🇳 国家队持仓透视系统 v1.0 (GitHub Star 版)
+🇨🇳 国家队持仓透视系统 v1.1
 更新内容：
 1. [Sidebar] 增加 GitHub 跳转链接。
 """
@@ -13,7 +13,7 @@ import plotly.graph_objects as go
 import plotly.express as px
 import fnmatch
 
-st.set_page_config(page_title="国家队持仓透视系统 v1.0", layout="wide", page_icon="🇨🇳")
+st.set_page_config(page_title="国家队持仓透视系统 v1.1", layout="wide", page_icon="🇨🇳")
 
 DB_URL = "postgresql+psycopg2://quant_user:quant_password_123@localhost:5432/national_team_db"
 TAG_GROUPS = {
@@ -176,7 +176,7 @@ if not df_all.empty:
     if search_keyword: filtered_df = filtered_df[filtered_df['ts_code'].str.contains(search_keyword) | filtered_df['name'].str.contains(search_keyword)]
 
 # ================= 主界面 =================
-st.title("🇨🇳 国家队持仓透视系统 v1.0")
+st.title("🇨🇳 国家队持仓透视系统 v1.1")
 st.caption(f"🚀 数据更新于：{update_time_str}")
 
 if "page_index" not in st.session_state: st.session_state.page_index = 0
