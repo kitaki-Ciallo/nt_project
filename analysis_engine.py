@@ -90,7 +90,7 @@ class NationalTeamAnalyzer:
         tag = "🔺 加仓" if diff > 0 else "🔻 减仓"
         
         # 🟢 拼接最终字符串
-        return f"{compare_prefix}{tag}{abs(pct_change):.1f}% | 均价≈{op_cost_str} (较建仓{vs_first}, 较现价{vs_curr})"
+        return f"{compare_prefix}{tag}{abs(pct_change):.1f}% | 均价≈{op_cost_str} (较建仓{vs_first}, 现价较其{vs_curr})"
 
     def process_group(self, group_df, latest_prices, hist_costs, hist_dates):
         results = []
