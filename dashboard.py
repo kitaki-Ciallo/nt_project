@@ -89,6 +89,13 @@ def load_kline_data(ts_code):
         return pd.read_sql(sql, engine, params={"code": ts_code})
     except: return pd.DataFrame()
 
+def load_position_history(ts_code, holder_name):
+    engine = get_engine()
+    sql = text("SELECT * FROM nt_positions_analysis WHERE ts_code = :code AND holder_name = :holder ORDER BY period_end ASC")
+    try:
+        return pd.read_sql(sql, engine, params={"code": ts_code, "holder": holder_name})
+    except: return pd.DataFrame()
+
 def calculate_technical_indicators(df):
     if df.empty: return {}
     close = df['close']
@@ -302,16 +309,87 @@ if selected_tab == "🔍 核心看板":
             col_chart, col_data = st.columns([2.5, 1])
 
             with col_chart:
-                    k_df = load_kline_data(code)
-                    if not k_df.empty:
-                        fig = go.Figure(data=[go.Candlestick(
-                            x=k_df['trade_date'], open=k_df['open'], high=k_df['high'], low=k_df['low'], close=k_df['close'], 
-                            name="日线", increasing_line_color='#ef5350', decreasing_line_color='#26a69a'
-                        )])
-                        line_color = "#ef5350" if row['profit_rate_pct'] > 0 else "#26a69a"
-                        fig.add_hline(y=row['est_cost'], line_dash="dash", line_color=line_color, annotation_text=f"成本: {row['est_cost']:.2f}")
-                        st.plotly_chart(fig, use_container_width=True)
-                    else: st.warning("⚠️ 暂无K线数据")
+                k_df = load_kline_data(code)
+                pos_history = load_position_history(code, row['holder_name'])
+                
+                if not k_df.empty:
+                    # --- 1. 计算默认展示区间 (近3年) ---
+                    k_df['trade_date'] = pd.to_datetime(k_df['trade_date'])
+                    max_date = k_df['trade_date'].max()
+                    min_date_3y = max_date - pd.DateOffset(years=3)
+                    
+                    # --- 2. 计算该区间内的 Y 轴范围 ---
+                    # 只有在缩放时这一步才真正有效用于初始视图
+                    mask_3y = k_df['trade_date'] >= min_date_3y
+                    df_3y = k_df[mask_3y]
+                    if not df_3y.empty:
+                        y_min = df_3y['low'].min() * 0.95
+                        y_max = df_3y['high'].max() * 1.05
+                    else:
+                        y_min, y_max = None, None
+
+                    # --- 3. 绘制 K线图 ---
+                    fig = go.Figure(data=[go.Candlestick(
+                        x=k_df['trade_date'], open=k_df['open'], high=k_df['high'], low=k_df['low'], close=k_df['close'], 
+                        name="日线", increasing_line_color='#ef5350', decreasing_line_color='#26a69a'
+                    )])
+                    
+                    line_color = "#ef5350" if row['profit_rate_pct'] > 0 else "#26a69a"
+                    fig.add_hline(y=row['est_cost'], line_dash="dash", line_color=line_color, annotation_text=f"成本: {row['est_cost']:.2f}")
+
+                    # --- 4. 添加持仓背景色 (建仓/加仓/减仓) ---
+                    if not pos_history.empty:
+                        # 转换日期格式
+                        pos_history['period_end'] = pd.to_datetime(pos_history['period_end'])
+                        pos_history = pos_history.sort_values('period_end')
+                        
+                        prev_row = None
+                        for _, p_row in pos_history.iterrows():
+                            # 确定区间: 上个报告期(或建仓日) -> 当前报告期
+                            end_dt = p_row['period_end']
+                            start_dt = prev_row['period_end'] if prev_row is not None else (p_row['first_buy_date'] if pd.notnull(p_row['first_buy_date']) else end_dt - pd.DateOffset(months=3))
+                            start_dt = pd.to_datetime(start_dt) # 确保也是 datetime
+                            
+                            # 颜色逻辑
+                            rect_color = None
+                            
+                            # 获取持股变动
+                            hold_now = p_row['hold_amount']
+                            # 如果是第一条记录，视为建仓
+                            if prev_row is None:
+                                rect_color = "rgba(52, 152, 219, 0.15)" # 🔵 建仓 - 蓝色
+                            else:
+                                hold_prev = prev_row['hold_amount']
+                                if hold_now > hold_prev:
+                                    rect_color = "rgba(231, 76, 60, 0.15)"  # 🔴 加仓 - 红色
+                                elif hold_now < hold_prev:
+                                    rect_color = "rgba(46, 204, 113, 0.15)" # 🟢 减仓 - 绿色
+                            
+                            # 绘制矩形
+                            if rect_color:
+                                fig.add_vrect(
+                                    x0=start_dt, x1=end_dt,
+                                    fillcolor=rect_color, opacity=1, layer="below", line_width=0,
+                                )
+                            
+                            prev_row = p_row
+
+                    # --- 5. 更新布局 (核心: 默认 Range) ---
+                    layout_update = dict(height=500) # 稍微调高一点
+                    if y_min and y_max:
+                        layout_update['yaxis'] = dict(range=[y_min, y_max])
+                    
+                    # 设置默认 X 轴范围
+                    layout_update['xaxis'] = dict(
+                        range=[min_date_3y, max_date],
+                        rangeslider=dict(visible=False), # 隐藏自带的下方滑块节省空间，或者设置为 True 看个人喜好
+                        tickformat="%Y-%m-%d"
+                    )
+                    
+                    fig.update_layout(**layout_update)
+                    
+                    st.plotly_chart(fig, use_container_width=True)
+                else: st.warning("⚠️ 暂无K线数据")
 
             with col_data:
                 st.markdown("""<style>div[data-testid="stMetricValue"]>div{font-size:1rem!important;font-weight:600!important;}div[data-testid="stMetricLabel"] label{font-size:0.8rem!important;}div[data-testid="stMetric"]{margin-bottom:2px!important;}hr{margin-top:5px!important;margin-bottom:10px!important;}div[data-testid="column"]{gap:0rem;}</style>""", unsafe_allow_html=True)
