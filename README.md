@@ -233,7 +233,6 @@ cd nt_project/
 
 #部署数据库
 docker-compose -f docker-compose-db.yml up -d
-cat database_onlyTables.sql | docker-compose -f docker-compose-db.yml exec -T db psql -U quant_user national_team_db
 
 #安装Python依赖
 pip install -r requirements.txt

@@ -13,6 +13,7 @@ services:
       - "5432:5432"
     volumes:
       - ./storage/db_data:/var/lib/postgresql/data
+      - ./database_onlyTables.sql:/docker-entrypoint-initdb.d/init.sql
     networks:
       - quant_net
 
