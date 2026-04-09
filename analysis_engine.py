@@ -11,7 +11,9 @@ from tqdm import tqdm
 import logging
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-DB_URL = "postgresql+psycopg2://quant_user:quant_password_123@localhost:5432/national_team_db"
+import os
+
+DB_URL = os.getenv('DB_URL', "postgresql+psycopg2://quant_user:quant_password_123@localhost:5432/national_team_db")
 COST_DISCOUNT = 0.95
 MAX_WORKERS = 10
 

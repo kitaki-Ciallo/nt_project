@@ -185,22 +185,54 @@ nt_project/
 
 ## 🛠️ 快速部署 (Quick Start)
 
-### Linux
+### 🐳 Docker (推荐)
+
+这是最简便的部署方式，集成了数据库与应用环境。
+
+#### 1. 环境准备
+确保已安装 `Docker` 和 `Docker Compose`。
+
+#### 2. 部署步骤
+```bash
+# 1. 克隆项目
+git clone https://github.com/kitaki-Ciallo/nt_project
+cd nt_project/
+
+# 2. 修改配置 (可选)
+# 编辑 docker-compose.yml 中的 PUSHPLUS_TOKEN 和 TUSHARE_TOKEN
+
+# 3. 启动
+docker-compose up -d
+
+# 4. 初始化数据（仅第一次运行或需要更新全量数据时）
+docker-compose exec app bash update_data.sh
+
+# 5. 设置定时任务 (可选)
+# 推荐在宿主机使用 crontab 实现每日自动更新
+# 输入 crontab -e，添加以下内容（每天凌晨 1:00 执行）：
+0 1 * * * docker exec nt_app bash /app/update_data.sh >> /root/nt_project/storage/cron_log.log 2>&1
+```
+
+#### 3. 访问
+浏览器访问 `http://localhost:8501`
+
+---
+
+### 🐧 Linux (手动部署)
 
 #### 1. 环境准备
 
-确保您的服务器安装了 `Python 3.10+` 和 `Docker Compose` (用于数据库)。
+确保已安装 `Docker` 和 `Docker Compose`。
 
-#### 2. 部署
+#### 2. 部署步骤
 
-```bash
+````bash
 #克隆项目
 git clone https://github.com/kitaki-Ciallo/nt_project
 cd nt_project/
 
 #部署数据库
-docker compose up -d
-cat database_onlyTables.sql | docker-compose exec -T db psql -U quant_user national_team_db
+docker-compose -f docker-compose-db.yml up -d
 
 #安装Python依赖
 pip install -r requirements.txt
@@ -218,11 +250,28 @@ systemctl daemon-reload
 systemctl start nt_dashboard.service
 
 浏览器访问主机8501端口
+
+#### 4. 定时任务 (可选)
+
+如果需要每日自动更新数据，请在宿主机设置 crontab：
+
+```bash
+# 输入 crontab -e，添加以下内容（每天凌晨 1:00 执行）：
+0 1 * * * /usr/bin/bash /path/to/nt_project/update_data.sh >> /path/to/nt_project/storage/cron_log.log 2>&1
 ```
 
-#### 3. 使用说明
+*(注意：请将 /path/to/nt_project 替换为你的实际项目路径)*
+````
 
-详细请见[部署说明](assets/Deploy.md)。
+#### 3. 访问
+
+浏览器访问 `http://localhost:8501`
+
+---
+
+### 更多使用说明
+
+请见[详细部署说明](assets/Deploy.md)。
 
 ---
 
@@ -231,7 +280,6 @@ systemctl start nt_dashboard.service
 ## 👀 后续更新计划 (Subsequent update plan)
 
 1. 新增高级筛选，可以根据相关数据指标进行筛选。
-2. 新增龙虎榜每日扫描板块，通过扫描龙虎榜中符合国家队持仓风格的股票（低PE PB，高分红）并进行追踪。
 3. 新增历史战绩板块，扫描国家队完全撤仓的股票并根据建仓时间估算收益。
 
 ----
