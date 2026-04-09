@@ -15,11 +15,13 @@ from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 from tqdm import tqdm
 
-DB_URL = "postgresql+psycopg2://quant_user:quant_password_123@localhost:5432/national_team_db"
+import os
+
+DB_URL = os.getenv('DB_URL', "postgresql+psycopg2://quant_user:quant_password_123@localhost:5432/national_team_db")
 SSF_KEYWORDS = ["社保", "养老", "证金", "中央汇金", "全国社保", "基本养老", "中国证券金融", "社保基金", "汇金资管"]
 
 # 🔴 请替换为您的 PushPlus Token
-PUSHPLUS_TOKEN = "your_pushplus_token_here"
+PUSHPLUS_TOKEN = os.getenv('PUSHPLUS_TOKEN', "your_pushplus_token_here")
 
 def send_pushplus(title, content):
     """发送 PushPlus 通知"""

@@ -1,4 +1,5 @@
 version: '3.8'
+
 services:
   db:
     image: postgres:15
@@ -6,15 +7,41 @@ services:
     restart: always
     environment:
       POSTGRES_USER: quant_user
-      POSTGRES_PASSWORD: quant_password_123  # 自己改个复杂的
+      POSTGRES_PASSWORD: quant_password_123
       POSTGRES_DB: national_team_db
     ports:
       - "5432:5432"
     volumes:
-      - ./storage/db_data:/var/lib/postgresql/data
+      - nt_db_data:/var/lib/postgresql/data
+    networks:
+      - quant_net
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U quant_user -d national_team_db" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build: .
+    container_name: nt_app
+    restart: always
+    ports:
+      - "8501:8501"
+    environment:
+      - DB_URL=postgresql+psycopg2://quant_user:quant_password_123@db:5432/national_team_db
+      - PUSHPLUS_TOKEN=your_pushplus_token_here
+      - TUSHARE_TOKEN=your_tushare_token_here
+    volumes:
+      - ./storage:/app/storage
+    depends_on:
+      db:
+        condition: service_healthy
     networks:
       - quant_net
 
 networks:
   quant_net:
     driver: bridge
+
+volumes:
+  nt_db_data:

@@ -10,10 +10,10 @@ import os
 
 # ================= 配置区域 =================
 # 数据库连接
-DB_URL = "postgresql+psycopg2://quant_user:quant_password_123@localhost:5432/national_team_db"
+DB_URL = os.getenv('DB_URL', "postgresql+psycopg2://quant_user:quant_password_123@localhost:5432/national_team_db")
 
 # PushPlus Token (与 etl_ingest_tushare.py 保持一致)
-PUSHPLUS_TOKEN = "your_pushplus_token"
+PUSHPLUS_TOKEN = os.getenv('PUSHPLUS_TOKEN', "your_pushplus_token")
 # ===========================================
 
 def send_pushplus(title, content):

@@ -14,8 +14,9 @@ import plotly.express as px
 import fnmatch
 
 st.set_page_config(page_title="国家队持仓透视系统 v1.1", layout="wide", page_icon="🇨🇳")
+import os
 
-DB_URL = "postgresql+psycopg2://quant_user:quant_password_123@localhost:5432/national_team_db"
+DB_URL = os.getenv('DB_URL', "postgresql+psycopg2://quant_user:quant_password_123@localhost:5432/national_team_db")
 TAG_GROUPS = {
     "👑 国家队核心": ["*中央汇金*", "*证券金融*"],
     "🛡️ 社保大军": ["全国社保基金*"],

@@ -25,15 +25,18 @@ import traceback
 import psycopg2.extras
 import tushare as ts
 
+import os
+
 # 初始化 Tushare Pro 接口
-pro = ts.pro_api('your_tushare_token_here')
+TUSHARE_TOKEN = os.getenv('TUSHARE_TOKEN', 'your_tushare_token_here')
+pro = ts.pro_api(TUSHARE_TOKEN)
 
 # ================= 配置区域 =================
-DB_URL = "postgresql+psycopg2://quant_user:quant_password_123@localhost:5432/national_team_db"
+DB_URL = os.getenv('DB_URL', "postgresql+psycopg2://quant_user:quant_password_123@localhost:5432/national_team_db")
 SSF_KEYWORDS = ["社保", "养老", "证金", "中央汇金", "全国社保", "基本养老", "中国证券金融", "社保基金", "汇金资管"]
 
 # 🔴 请替换为您的 PushPlus Token
-PUSHPLUS_TOKEN = "your_pushplus_token_here"
+PUSHPLUS_TOKEN = os.getenv('PUSHPLUS_TOKEN', "your_pushplus_token_here")
 
 # 🚀 混合并发配置
 SHAREHOLDER_WORKERS = 8  # 股东：极速

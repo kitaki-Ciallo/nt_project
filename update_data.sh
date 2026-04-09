@@ -25,7 +25,7 @@ fi
 
 echo "📂 项目目录: $PROJECT_DIR"
 echo "🐍 Python路径: $PYTHON_EXEC"
-PUSHPLUS_TOKEN="your_pushplus_token_here"  # 请替换为您的 PushPlus Token
+PUSHPLUS_TOKEN=${PUSHPLUS_TOKEN:-"your_pushplus_token_here"}  # 请优先使用环境变量中的 Token
 
 # --- 函数定义 ---
 send_pushplus() {
