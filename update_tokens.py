@@ -1,77 +1,61 @@
+# -*- coding: utf-8 -*-
 import os
 import re
 
 def update_tokens():
-    print("This script will update PushPlus and Tushare tokens in the current directory.")
-    print("Scanning for .py and .sh files...")
+    print("🚀 [Token管理器] 正在更新项目配置...")
     
-    pushplus_token = input("Please enter your PushPlus Token (press Enter to skip): ").strip()
-    tushare_token = input("Please enter your Tushare Pro Token (press Enter to skip): ").strip()
+    pushplus_token = input("请输入 PushPlus Token (直接回车跳过): ").strip()
+    tushare_token = input("请输入 Tushare Pro Token (直接回车跳过): ").strip()
     
     if not pushplus_token and not tushare_token:
-        print("No tokens provided. Exiting.")
+        print("💡 未输入任何 Token，操作已取消。")
         return
 
-    # Get all files in current directory
-    files = [f for f in os.listdir('.') if os.path.isfile(f)]
-    
-    count = 0
-    for filename in files:
-        if filename == "update_tokens.py":
-            continue
-            
-        # Only process .py and .sh files
-        if not (filename.endswith('.py') or filename.endswith('.sh')):
-            continue
-            
-        try:
-            with open(filename, 'r', encoding='utf-8') as f:
-                content = f.read()
-            
-            new_content = content
-            modified = False
-            
-            # Update PushPlus Token
-            if pushplus_token:
-                # Python pattern: PUSHPLUS_TOKEN = "..."
-                # Handles spaces around = and different quote types
-                pattern_py = r'(PUSHPLUS_TOKEN\s*=\s*)([\'"])(.*?)([\'"])'
-                if re.search(pattern_py, new_content):
-                    # Use \g<n> to avoid ambiguity if token starts with a digit
-                    safe_token = pushplus_token.replace('\\', '\\\\')
-                    new_content = re.sub(pattern_py, f'\\g<1>\\g<2>{safe_token}\\g<4>', new_content)
-                    modified = True
+    config_path = "config.py"
+    if not os.path.exists(config_path):
+        print(f"❌ 错误: 未找到配置文件 {config_path}")
+        return
+
+    try:
+        with open(config_path, 'r', encoding='utf-8') as f:
+            content = f.read()
+        
+        new_content = content
+        modified = False
+        
+        # 匹配 PUSHPLUS_TOKEN = "..."
+        if pushplus_token:
+            pattern = r'(PUSHPLUS_TOKEN\s*=\s*os\.getenv\([\'"]PUSHPLUS_TOKEN[\'"],\s*)([\'"])(.*?)([\'"])\)'
+            if re.search(pattern, new_content):
+                new_content = re.sub(pattern, f'\\1\\2{pushplus_token}\\4)', new_content)
+                modified = True
+            else:
+                # 兼容非 getenv 格式
+                pattern_simple = r'(PUSHPLUS_TOKEN\s*=\s*)([\'"])(.*?)([\'"])'
+                new_content = re.sub(pattern_simple, f'\\1\\2{pushplus_token}\\4', new_content)
+                modified = True
+        
+        # 匹配 TUSHARE_TOKEN = "..."
+        if tushare_token:
+            pattern = r'(TUSHARE_TOKEN\s*=\s*os\.getenv\([\'"]TUSHARE_TOKEN[\'"],\s*)([\'"])(.*?)([\'"])\)'
+            if re.search(pattern, new_content):
+                new_content = re.sub(pattern, f'\\1\\2{tushare_token}\\4)', new_content)
+                modified = True
+            else:
+                pattern_simple = r'(TUSHARE_TOKEN\s*=\s*)([\'"])(.*?)([\'"])'
+                new_content = re.sub(pattern_simple, f'\\1\\2{tushare_token}\\4', new_content)
+                modified = True
+
+        if modified:
+            with open(config_path, 'w', encoding='utf-8') as f:
+                f.write(new_content)
+            print(f"✅ 成功更新 {config_path}！")
+        else:
+            print("⚠️ 未能在 config.py 中匹配到 Token 配置项。")
                 
-                # Shell pattern: PUSHPLUS_TOKEN="..."
-                # Usually no spaces in shell assignment
-                pattern_sh = r'(PUSHPLUS_TOKEN=)([\'"])(.*?)([\'"])'
-                if re.search(pattern_sh, new_content):
-                    safe_token = pushplus_token.replace('\\', '\\\\')
-                    new_content = re.sub(pattern_sh, f'\\g<1>\\g<2>{safe_token}\\g<4>', new_content)
-                    modified = True
-            
-            # Update Tushare Token
-            if tushare_token:
-                # Pattern: pro = ts.pro_api('...')
-                pattern_ts = r'(pro\s*=\s*ts\.pro_api\s*\(\s*)([\'"])(.*?)([\'"])(\s*\))'
-                if re.search(pattern_ts, new_content):
-                    safe_token = tushare_token.replace('\\', '\\\\')
-                    new_content = re.sub(pattern_ts, f'\\g<1>\\g<2>{safe_token}\\g<4>\\g<5>', new_content)
-                    modified = True
-            
-            if modified:
-                with open(filename, 'w', encoding='utf-8') as f:
-                    f.write(new_content)
-                print(f"✅ Updated {filename}")
-                count += 1
-                
-        except Exception as e:
-            print(f"❌ Error processing {filename}: {e}")
-            
-    if count == 0:
-        print("No files were modified. Please check if the tokens exist in the files.")
-    else:
-        print(f"Successfully updated {count} files.")
+    except Exception as e:
+        print(f"❌ 更新失败: {e}")
 
 if __name__ == "__main__":
     update_tokens()

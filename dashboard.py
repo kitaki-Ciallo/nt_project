@@ -14,14 +14,15 @@ import plotly.express as px
 import fnmatch
 
 st.set_page_config(page_title="国家队持仓透视系统 v1.1", layout="wide", page_icon="🇨🇳")
-import os
-
-DB_URL = os.getenv('DB_URL', "postgresql+psycopg2://quant_user:quant_password_123@localhost:5432/national_team_db")
+# ================= 配置引用 =================
+from config import DB_URL
 TAG_GROUPS = {
     "👑 国家队核心": ["*中央汇金*", "*证券金融*"],
     "🛡️ 社保大军": ["全国社保基金*"],
     "👴 养老金战队": ["基本养老保险基金*"],
-    "🏦 险资/银行/公募": ["中国人寿*", "新华人寿*", "*银行*", "易方达*", "华夏基金*"]
+    "📈 产业孵化与战略投资": ["国新投资*", "国家集成电路*"],
+    "💲梧桐树投资（外汇管理局）": ["梧桐树投资*"],
+    #"🏦 险资/银行/公募": ["中国人寿*", "新华人寿*", "*银行*", "易方达*", "华夏基金*"]
 }
 
 @st.cache_resource
@@ -270,6 +271,7 @@ if selected_tab == "🔍 核心看板":
     
     if not filtered_df.empty:
         display_df = filtered_df.copy()
+        display_df = display_df.sort_values('period_end', ascending=False)
         display_df['rel_weight'] = (display_df['position_val'] / CUR_TOTAL_VAL) * 100
         display_df['display_val'] = display_df['position_val'] / 100000000 
         display_df['display_amount'] = display_df['hold_amount'] * 100 

@@ -24,16 +24,8 @@ import re
 import traceback
 import psycopg2.extras
 
-# ================= 配置区域 =================
-DB_URL = "postgresql+psycopg2://quant_user:quant_password_123@localhost:5432/national_team_db"
-SSF_KEYWORDS = ["社保", "养老", "证金", "中央汇金", "全国社保", "基本养老", "中国证券金融", "社保基金", "汇金资管"]
-
-# 🔴 请替换为您的 PushPlus Token
-PUSHPLUS_TOKEN = "your_pushplus_token_here"
-
-# 🚀 混合并发配置
-SHAREHOLDER_WORKERS = 8  # 股东：极速
-SENSITIVE_WORKERS = 2     # K线/基本面：慢速
+# ================= 配置引用 =================
+from config import DB_URL, SSF_KEYWORDS, PUSHPLUS_TOKEN, SHAREHOLDER_WORKERS, SENSITIVE_WORKERS
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(message)s')
 
