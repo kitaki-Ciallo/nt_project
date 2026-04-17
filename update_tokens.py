@@ -28,23 +28,23 @@ def update_tokens():
         if pushplus_token:
             pattern = r'(PUSHPLUS_TOKEN\s*=\s*os\.getenv\([\'"]PUSHPLUS_TOKEN[\'"],\s*)([\'"])(.*?)([\'"])\)'
             if re.search(pattern, new_content):
-                new_content = re.sub(pattern, f'\\1\\2{pushplus_token}\\4)', new_content)
+                new_content = re.sub(pattern, f'\\g<1>\\g<2>{pushplus_token}\\g<4>)', new_content)
                 modified = True
             else:
                 # 兼容非 getenv 格式
                 pattern_simple = r'(PUSHPLUS_TOKEN\s*=\s*)([\'"])(.*?)([\'"])'
-                new_content = re.sub(pattern_simple, f'\\1\\2{pushplus_token}\\4', new_content)
+                new_content = re.sub(pattern_simple, f'\\g<1>\\g<2>{pushplus_token}\\g<4>', new_content)
                 modified = True
         
         # 匹配 TUSHARE_TOKEN = "..."
         if tushare_token:
             pattern = r'(TUSHARE_TOKEN\s*=\s*os\.getenv\([\'"]TUSHARE_TOKEN[\'"],\s*)([\'"])(.*?)([\'"])\)'
             if re.search(pattern, new_content):
-                new_content = re.sub(pattern, f'\\1\\2{tushare_token}\\4)', new_content)
+                new_content = re.sub(pattern, f'\\g<1>\\g<2>{tushare_token}\\g<4>)', new_content)
                 modified = True
             else:
                 pattern_simple = r'(TUSHARE_TOKEN\s*=\s*)([\'"])(.*?)([\'"])'
-                new_content = re.sub(pattern_simple, f'\\1\\2{tushare_token}\\4', new_content)
+                new_content = re.sub(pattern_simple, f'\\g<1>\\g<2>{tushare_token}\\g<4>', new_content)
                 modified = True
 
         if modified:
